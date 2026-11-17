@@ -5,6 +5,7 @@ from src.shingling import Shingling
 from src.compare_sets import CompareSets
 from src.minhashing import MinHashing
 from src.compare_signatures import CompareSignatures
+from src.lsh import LSH
 
 
 class TestShingling(unittest.TestCase):
@@ -126,6 +127,88 @@ class TestCompareSignatures(unittest.TestCase):
                 [10, 20, 30],
                 [10, 20]
             )
+
+
+class TestLSH(unittest.TestCase):
+
+    def test_identical_signatures_are_candidates(self):
+        lsh = LSH(bands=2, rows=2)
+
+        signatures = {
+            "a": [1, 2, 3, 4],
+            "b": [1, 2, 3, 4],
+            "c": [5, 6, 7, 8]
+        }
+
+        result = lsh.find_candidate_pairs(signatures)
+
+        self.assertEqual(result, {("a", "b")})
+
+    def test_one_matching_band_is_enough(self):
+        lsh = LSH(bands=2, rows=2)
+
+        signatures = {
+            "a": [1, 2, 3, 4],
+            "b": [1, 2, 9, 9]
+        }
+
+        result = lsh.find_candidate_pairs(signatures)
+
+        self.assertEqual(result, {("a", "b")})
+
+    def test_similar_pairs_respect_threshold(self):
+        lsh = LSH(bands=2, rows=2)
+
+        signatures = {
+            "a": [1, 2, 3, 4],
+            "b": [1, 2, 9, 9]
+        }
+
+        self.assertEqual(
+            lsh.find_similar_pairs(signatures, threshold=0.5),
+            [("a", "b", 0.5)]
+        )
+        self.assertEqual(
+            lsh.find_similar_pairs(signatures, threshold=0.8),
+            []
+        )
+
+    def test_from_threshold_picks_bands_and_rows(self):
+        lsh = LSH.from_threshold(n=100, threshold=0.8)
+
+        self.assertEqual((lsh.bands, lsh.rows), (10, 10))
+        self.assertLessEqual(lsh.approximate_threshold(), 0.8)
+
+    def test_from_threshold_lower_threshold_uses_more_bands(self):
+        lsh = LSH.from_threshold(n=100, threshold=0.5)
+
+        self.assertEqual(lsh.bands * lsh.rows, 100)
+        self.assertGreater(lsh.bands, 10)
+        self.assertLessEqual(lsh.approximate_threshold(), 0.5)
+
+    def test_invalid_threshold(self):
+        lsh = LSH(bands=2, rows=2)
+
+        with self.assertRaises(ValueError):
+            LSH.from_threshold(n=100, threshold=0)
+
+        with self.assertRaises(ValueError):
+            lsh.find_similar_pairs({}, threshold=1.5)
+
+    def test_empty_and_single_document(self):
+        lsh = LSH(bands=2, rows=2)
+
+        self.assertEqual(lsh.find_candidate_pairs({}), set())
+        self.assertEqual(
+            lsh.find_candidate_pairs({"a": [1, 2, 3, 4]}),
+            set()
+        )
+
+    def test_wrong_signature_length(self):
+        lsh = LSH(bands=2, rows=2)
+
+        with self.assertRaises(ValueError):
+            lsh.find_candidate_pairs({"a": [1, 2, 3]})
 
 
 if __name__ == "__main__":

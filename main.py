@@ -14,6 +14,7 @@ from src.minhashing import MinHashing
 from src.normalization import normalize_text
 from src.shingling import Shingling
 from src.compare_signatures import CompareSignatures
+from src.lsh import LSH
 
 # shingling = Shingling(k=2)
 
@@ -59,7 +60,7 @@ from src.compare_signatures import CompareSignatures
 
 
 def run_experiment(documents, shingling, compare_sets,
-                   minhash, compare_signatures):
+                   minhash, compare_signatures, lsh):
 
     shingle_sets = {}
     signatures = {}
@@ -87,7 +88,7 @@ def run_experiment(documents, shingling, compare_sets,
     start = perf_counter()
     top_pairs = []
 
-    threshold = 0.8
+    threshold = THRESHOLD
     similar_pairs = []
 
     comparisons = 0
@@ -137,14 +138,54 @@ def run_experiment(documents, shingling, compare_sets,
 
     print(f"Total similar pairs: {len(similar_pairs)}")
 
-    return preprocessing_time, comparison_time, comparisons
+    # Step 4: LSH (bonus) - only compare candidate pairs
+    start = perf_counter()
 
+    candidate_pairs = lsh.find_candidate_pairs(signatures)
+    lsh_pairs = lsh.find_similar_pairs(
+        signatures,
+        threshold,
+        candidate_pairs
+    )
+
+    lsh_time = perf_counter() - start
+
+    print(
+        f"\nLSH similar pairs (threshold = {threshold}, "
+        f"bands = {lsh.bands}, rows = {lsh.rows}):"
+    )
+
+    for id1, id2, estimated in lsh_pairs:
+        print(f"{id1} vs {id2} | MinHash: {estimated:.4f}")
+
+    print(f"LSH candidate pairs: {len(candidate_pairs)}")
+    print(f"Total LSH similar pairs: {len(lsh_pairs)}")
+
+    # Step 5: Check LSH against the exact Jaccard result
+    # (sort ids so both sets store a pair the same way)
+    exact_set = {tuple(sorted((id1, id2))) for id1, id2, _, _ in similar_pairs}
+    lsh_set = {(id1, id2) for id1, id2, _ in lsh_pairs}
+
+    missed = exact_set - lsh_set
+    extra = lsh_set - exact_set
+
+    print(f"Missed by LSH (false negatives): {len(missed)}")
+    print(f"Found by LSH only (false positives): {len(extra)}")
+
+    return preprocessing_time, comparison_time, comparisons, lsh_time
+
+
+# Settings used by every step
+THRESHOLD = 0.8
+SIGNATURE_LENGTH = 100
 
 # Initialize algorithms once
 shingling = Shingling(k=5)
 compare_sets = CompareSets()
-minhash = MinHashing(n=100)
+minhash = MinHashing(n=SIGNATURE_LENGTH)
 compare_signatures = CompareSignatures()
+# LSH picks bands and rows from the threshold (n = 100, s = 0.8 -> 10 x 10)
+lsh = LSH.from_threshold(n=SIGNATURE_LENGTH, threshold=THRESHOLD)
 
 # Load the largest dataset once
 all_documents = load_documents("data/documents", limit=1000)
@@ -152,18 +193,22 @@ all_documents = load_documents("data/documents", limit=1000)
 for size in [10, 100, 1000]:
     documents = dict(list(all_documents.items())[:size])
 
-    preprocessing_time, comparison_time, comparisons = run_experiment(
-        documents,
-        shingling,
-        compare_sets,
-        minhash,
-        compare_signatures
+    preprocessing_time, comparison_time, comparisons, lsh_time = (
+        run_experiment(
+            documents,
+            shingling,
+            compare_sets,
+            minhash,
+            compare_signatures,
+            lsh
+        )
     )
 
     print(f"\nDataset size: {len(documents)}")
     print(f"Document comparisons: {comparisons}")
     print(f"Preprocessing time: {preprocessing_time:.4f} seconds")
     print(f"Comparison time: {comparison_time:.4f} seconds")
+    print(f"LSH time: {lsh_time:.4f} seconds")
 
 
 # documents = load_documents("data/documents", limit=10)

@@ -8,9 +8,13 @@ from src.shingling import Shingling
 from src.compare_sets import CompareSets
 from src.minhashing import MinHashing
 from src.compare_signatures import CompareSignatures
+from src.lsh import LSH
+
+THRESHOLD = 0.8
+SIGNATURE_LENGTH = 100
 
 def run_benchmark(documents, shingling, compare_sets,
-                  minhash, compare_signatures):
+                  minhash, compare_signatures, lsh):
 
     # 1. Shingling
     start = perf_counter()
@@ -65,7 +69,14 @@ def run_benchmark(documents, shingling, compare_sets,
 
     signature_time = perf_counter() - start
 
-    # 5. Accuracy measurement
+    # 5. LSH (bonus): find similar pairs without checking all pairs
+    start = perf_counter()
+
+    lsh.find_similar_pairs(signatures, THRESHOLD)
+
+    lsh_time = perf_counter() - start
+
+    # 6. Accuracy measurement
     total_error = 0.0
 
     for id1, id2 in combinations(ids, 2):
@@ -90,6 +101,7 @@ def run_benchmark(documents, shingling, compare_sets,
         "minhash_generation": minhash_time,
         "exact_comparison": exact_time,
         "signature_comparison": signature_time,
+        "lsh": lsh_time,
         "mae": mae
     }
 
@@ -101,8 +113,9 @@ def main():
 
     shingling = Shingling(k=5)
     compare_sets = CompareSets()
-    minhash = MinHashing(n=100)
+    minhash = MinHashing(n=SIGNATURE_LENGTH)
     compare_signatures = CompareSignatures()
+    lsh = LSH.from_threshold(n=SIGNATURE_LENGTH, threshold=THRESHOLD)
 
     for size in [10, 100, 1000]:
         documents = dict(
@@ -116,7 +129,8 @@ def main():
                 shingling,
                 compare_sets,
                 minhash,
-                compare_signatures
+                compare_signatures,
+                lsh
             )
             for _ in range(3)
         ]
@@ -131,6 +145,7 @@ def main():
         print(f"MinHash generation: {med('minhash_generation'):.4f} s")
         print(f"Exact Jaccard: {med('exact_comparison'):.4f} s")
         print(f"MinHash comparison: {med('signature_comparison'):.4f} s")
+        print(f"LSH (s = {THRESHOLD}): {med('lsh'):.4f} s")
         print(f"Mean absolute error: {med('mae'):.4f}")
 
 
