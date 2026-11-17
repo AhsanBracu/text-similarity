@@ -1,17 +1,18 @@
-# Document Similarity Detection Using Shingling and MinHash
+# Document Similarity Detection Using Shingling, MinHash and LSH
 
 ## 1. Overview
 
-This project implements document similarity detection using character-based shingling, Jaccard similarity, and MinHash signatures.
+This project implements document similarity detection using character-based shingling, Jaccard similarity, MinHash signatures, and Locality-Sensitive Hashing (LSH).
 
 The implementation is written in Python and evaluates similarity between tweets from the **Health News in Twitter** dataset.
 
-Four main components are implemented:
+Five main components are implemented:
 
 1. **Shingling:** Generate unique character-based k-shingles and represent documents as sorted sets of hashed integers.
 2. **CompareSets:** Calculate exact Jaccard similarity between hashed-shingle sets.
 3. **MinHashing:** Generate fixed-length MinHash signatures using multiple hash functions.
 4. **CompareSignatures:** Estimate Jaccard similarity by calculating the fraction of matching signature components.
+5. **LSH (bonus task):** Find candidate pairs using banding over MinHash signatures, then keep pairs whose signatures agree on at least a fraction `s` of their components.
 
 The project also includes unit tests and scalability experiments.
 
@@ -25,6 +26,7 @@ document-similarity/
 │   ├── compare_sets.py
 │   ├── minhashing.py
 │   ├── compare_signatures.py
+│   ├── lsh.py
 │   ├── data_loader.py
 │   └── normalization.py
 ├── tests/
@@ -89,6 +91,25 @@ The application loads tweets, computes hashed shingles and MinHash signatures, a
 
 It displays the five pairs with the highest exact Jaccard similarity and identifies pairs satisfying the chosen similarity threshold.
 
+### Checking the LSH (Bonus) Output
+
+After the exact results, `main.py` runs LSH on the same signatures for each dataset size. Look for these lines in the output:
+
+```text
+LSH similar pairs (threshold = 0.8, bands = 10, rows = 10):
+LSH candidate pairs: 8
+Total LSH similar pairs: 6
+Missed by LSH (false negatives): 1
+Found by LSH only (false positives): 0
+LSH time: 0.0026 seconds
+```
+
+- `LSH candidate pairs` is the number of pairs LSH actually compared (instead of all pairs).
+- `Missed by LSH` and `Found by LSH only` compare the LSH result with the exact Jaccard result.
+- `LSH time` can be compared with `Comparison time`, which is the time for comparing all pairs.
+
+The example above is for 1,000 documents: LSH compares 8 pairs instead of 499,500 and finds 6 of the 7 similar pairs.
+
 ### Experiment Configuration
 
 | Parameter | Value | Description |
@@ -98,8 +119,9 @@ It displays the five pairs with the highest exact Jaccard similarity and identif
 | `s` | 0.8 | Minimum exact Jaccard similarity for similar documents |
 | Dataset sizes | 10, 100, 1,000 | Number of tweets evaluated |
 | Random seed | 42 | Reproducible MinHash function generation |
+| `b` x `r` | 10 x 10 | LSH bands and rows, chosen automatically from `n` and `s` |
 
-These parameters are currently configured in the Python source code rather than through command-line arguments.
+These parameters are currently configured in the Python source code rather than through command-line arguments. `s` and `n` are set once as `THRESHOLD` and `SIGNATURE_LENGTH` at the top of `main.py` and `benchmark.py`.
 
 ## 6. Implementation Details
 
@@ -153,6 +175,14 @@ Two documents are classified as similar when their exact Jaccard similarity is a
 s=0.8
 \]
 
+### LSH (Bonus Task)
+
+Implemented in `src/lsh.py`.
+
+Each MinHash signature (`n=100`) is split into `b=10` bands of `r=10` rows. Documents that have exactly the same values in at least one band become a candidate pair. Only candidate pairs are compared, and pairs with signature similarity of at least `s=0.8` are returned.
+
+The number of bands and rows is chosen automatically from `s` by `LSH.from_threshold(n, s)`, so that the LSH threshold \((1/b)^{1/r} \approx 0.794\) is just below `s`.
+
 ## 7. Benchmarking
 
 Run:
@@ -169,7 +199,7 @@ make benchmark
 
 Each dataset-size experiment is repeated three times, and median execution times are reported.
 
-The benchmark measures shingling, MinHash generation, exact Jaccard comparisons, MinHash signature comparisons, and mean absolute estimation error.
+The benchmark measures shingling, MinHash generation, exact Jaccard comparisons, MinHash signature comparisons, LSH, and mean absolute estimation error.
 
 ### Benchmark Results
 
@@ -210,7 +240,7 @@ Or:
 make test
 ```
 
-The project contains 12 unit tests covering:
+The project contains 20 unit tests covering:
 
 - Shingle generation and uniqueness
 - Sorted hashed-shingle representation
@@ -219,22 +249,25 @@ The project contains 12 unit tests covering:
 - MinHash signature length and deterministic behavior
 - Empty MinHash input handling
 - Signature similarity and length validation
+- LSH candidate pairs, threshold filtering, and band/row selection
+- LSH input validation (invalid threshold, wrong signature length, empty input)
 
-All 12 unit tests passed during development.
+All 20 unit tests passed during development.
 
 ## 9. Limitations
 
 - MinHash provides approximate similarity, so its results can differ from exact Jaccard similarity.
 - Linear hash functions approximate random permutations rather than implementing true random permutations.
-- The current implementation compares all document pairs, requiring quadratic comparison work.
+- The exact Jaccard baseline compares all document pairs, requiring quadratic comparison work.
+- LSH is probabilistic and can miss similar pairs close to the threshold.
 - Documents producing empty shingle sets are excluded from signature generation and pair comparisons.
 - Dataset loading time is excluded from the reported benchmark timings.
 
 ## 10. Future Work
 
-Locality-Sensitive Hashing (LSH) can be added to group documents into buckets based on MinHash signature bands.
+URLs could be removed during normalization, since tweets with the same headline but different short links currently get lower similarity scores.
 
-This could reduce the number of candidate pairs requiring comparison and improve scalability for larger datasets.
+Parameters such as `k`, `n`, and `s` could be exposed as command-line arguments.
 
 ## 11. Submission Notes
 
