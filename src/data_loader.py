@@ -11,6 +11,8 @@ def read_text(file_path: Path) -> str:
         return raw.decode("cp1252", errors="replace")
 
 
+# Each line in the files is tweet_id|date|text, and one tweet = one document.
+# Stops when `limit` documents are loaded.
 def load_documents(folder_path: str, limit: int = 10) -> dict[str, str]:
     documents = {}
 
@@ -20,6 +22,7 @@ def load_documents(folder_path: str, limit: int = 10) -> dict[str, str]:
         for line in content.split("\n"):
             parts = line.strip().split("|", maxsplit=2)
 
+            # skip empty or broken lines
             if len(parts) != 3:
                 continue
 

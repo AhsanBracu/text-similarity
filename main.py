@@ -59,6 +59,8 @@ from src.lsh import LSH
 # print("Estimated Jaccard similarity:", similarity)
 
 
+# Runs the whole pipeline on one corpus, prints the results
+# and returns the timings.
 def run_experiment(documents, shingling, compare_sets,
                    minhash, compare_signatures, lsh):
 
@@ -75,6 +77,7 @@ def run_experiment(documents, shingling, compare_sets,
             shingling.generate_hashed_shingles(normalized_text)
         )
 
+        # tweets shorter than k have no shingles, skip them
         if not shingle_sets[tweet_id]:
             continue
 

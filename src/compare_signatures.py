@@ -1,3 +1,5 @@
+# Fraction of positions where two signatures agree.
+# This is the MinHash estimate of the Jaccard similarity.
 class CompareSignatures:
 
     def similarity(

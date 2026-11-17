@@ -1,3 +1,4 @@
+# Jaccard similarity = size of intersection / size of union
 class CompareSets:
 
     def jaccard_similarity(
@@ -6,6 +7,7 @@ class CompareSets:
         set2: set[int]
     ) -> float:
 
+        # two empty documents count as identical (also avoids dividing by 0)
         if not set1 and not set2:
             return 1.0
 

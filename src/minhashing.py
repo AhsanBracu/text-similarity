@@ -7,8 +7,11 @@ class MinHashing:
             raise ValueError("n must be positive")
 
         self.n = n
+        # Hash functions are h(x) = (a*x + b) mod p.
+        # p has to be bigger than 2^32 because the shingle hashes are 32-bit.
         self.prime = 4294967311  # Prime larger than 2^32
 
+        # fixed seed so we get the same signatures every run
         rng = random.Random(42)
 
         self.hash_functions = [
@@ -23,6 +26,7 @@ class MinHashing:
      if not shingles:
         raise ValueError("Cannot generate MinHash for an empty set")
 
+     # for every hash function keep the smallest value over all shingles
      signature = []
 
      for a, b in self.hash_functions:

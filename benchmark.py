@@ -13,6 +13,7 @@ from src.lsh import LSH
 THRESHOLD = 0.8
 SIGNATURE_LENGTH = 100
 
+# Times every stage on its own so we can see which part is slow.
 def run_benchmark(documents, shingling, compare_sets,
                   minhash, compare_signatures, lsh):
 
@@ -69,7 +70,7 @@ def run_benchmark(documents, shingling, compare_sets,
 
     signature_time = perf_counter() - start
 
-    # 5. LSH (bonus): find similar pairs without checking all pairs
+    # 5. LSH (bonus): to find similar pairs without checking all pairs
     start = perf_counter()
 
     lsh.find_similar_pairs(signatures, THRESHOLD)

@@ -1,6 +1,7 @@
 import hashlib
 
 
+# Turns a document into a set of hashed character k-shingles.
 class Shingling:
     def __init__(self, k: int = 5):
         if k < 1:
@@ -8,6 +9,7 @@ class Shingling:
 
         self.k = k
 
+    # Every substring of length k. It's a set so duplicates are dropped.
     def generate_shingles(self, text: str) -> set[str]:
         shingles = set()
 
@@ -17,6 +19,8 @@ class Shingling:
 
         return shingles
 
+    # 4 byte blake2b hash, so each shingle becomes a 32-bit int.
+    # Not using Python's hash() because it changes between runs.
     def hash_shingle(self, shingle: str) -> int:
         hash_bytes = hashlib.blake2b(
             shingle.encode("utf-8"),
@@ -33,4 +37,5 @@ class Shingling:
             for shingle in shingles
         }
 
+        # sorted, since the task asks for an ordered set
         return sorted(hashed_shingles)

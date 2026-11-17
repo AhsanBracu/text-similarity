@@ -3,6 +3,9 @@ from itertools import combinations
 from src.compare_signatures import CompareSignatures
 
 
+# LSH with banding. A signature of length n is cut into b bands of r rows
+# (b * r = n). Two documents become a candidate pair if all r values match
+# in at least one band.
 class LSH:
     def __init__(self, bands: int = 10, rows: int = 10):
         if bands <= 0 or rows <= 0:
@@ -11,6 +14,7 @@ class LSH:
         self.bands = bands
         self.rows = rows
 
+    # Picks b and r from the similarity threshold instead of hardcoding them.
     @classmethod
     def from_threshold(cls, n: int, threshold: float) -> "LSH":
         if n <= 0:
@@ -42,6 +46,8 @@ class LSH:
 
         return cls(bands=best_bands, rows=n // best_bands)
 
+    # Roughly where the S-curve is steepest. Pairs above this similarity
+    # are very likely to become candidates.
     def approximate_threshold(self) -> float:
         return (1 / self.bands) ** (1 / self.rows)
 
@@ -52,6 +58,7 @@ class LSH:
 
         candidate_pairs = set()
 
+        # every signature has to split evenly into the bands
         for signature in signatures.values():
             if len(signature) != self.bands * self.rows:
                 raise ValueError(
@@ -63,6 +70,7 @@ class LSH:
             start = band * self.rows
 
             # Documents with the same band slice go into the same bucket
+            # The tuple is the dict key, so Python hashes it for us.
             for doc_id, signature in signatures.items():
                 band_slice = tuple(signature[start:start + self.rows])
                 buckets.setdefault(band_slice, []).append(doc_id)
@@ -101,6 +109,7 @@ class LSH:
             if similarity >= threshold:
                 similar_pairs.append((id1, id2, similarity))
 
+        # most similar first
         similar_pairs.sort(key=lambda pair: pair[2], reverse=True)
 
         return similar_pairs
