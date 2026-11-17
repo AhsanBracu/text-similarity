@@ -87,6 +87,9 @@ def run_experiment(documents, shingling, compare_sets,
     start = perf_counter()
     top_pairs = []
 
+    threshold = 0.8
+    similar_pairs = []
+
     comparisons = 0
 
     for id1, id2 in combinations(signatures.keys(), 2):
@@ -102,6 +105,9 @@ def run_experiment(documents, shingling, compare_sets,
         )
 
         comparisons += 1
+
+        if exact >= threshold:
+            similar_pairs.append((id1, id2, exact, estimated))
 
         # Don't print every pair during benchmarking.
         top_pairs.append((exact, estimated, id1, id2))
@@ -119,6 +125,17 @@ def run_experiment(documents, shingling, compare_sets,
             f"Exact: {exact:.4f} | "
             f"MinHash: {estimated:.4f}"
         )
+
+    print(f"\nSimilar document pairs (threshold = {threshold}):")
+
+    for id1, id2, exact, estimated in similar_pairs:
+        print(
+            f"{id1} vs {id2} | "
+            f"Exact: {exact:.4f} | "
+            f"MinHash: {estimated:.4f}"
+        )
+
+    print(f"Total similar pairs: {len(similar_pairs)}")
 
     return preprocessing_time, comparison_time, comparisons
 
